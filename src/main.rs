@@ -290,6 +290,7 @@ fn draw_prob_pieces(board: &[Vec<ProbPiece>]) {
     }
 }
 
+// 重点修改：落子预判改为统一颜色（深灰色）
 fn draw_piece_preview(state: &GameState) {
     if state.game_over || state.show_observation || state.current_turn_move_count > 0 {
         return;
@@ -300,21 +301,15 @@ fn draw_piece_preview(state: &GameState) {
         if state.board[row][col] == ProbPiece::Empty {
             let x = BOARD_OFFSET_X + col as f32 * CELL_SIZE;
             let y = BOARD_OFFSET_Y + row as f32 * CELL_SIZE;
-            let piece = get_current_prob_piece(state);
             
-            let base_color = match piece {
-                ProbPiece::Black90 => Color::new(0.1, 0.1, 0.1, 1.0),
-                ProbPiece::Black70 => Color::new(0.3, 0.3, 0.3, 1.0),
-                ProbPiece::Black30 => Color::new(0.6, 0.6, 0.6, 1.0),
-                ProbPiece::Black10 => Color::new(0.8, 0.8, 0.8, 1.0),
-                _ => return,
-            };
+            // 统一使用深灰色（可根据喜好修改 r/g/b 值），保留原有的透明度
+            let preview_color = Color::new(0.2, 0.2, 0.2, PREVIEW_ALPHA);
             
             draw_circle(
                 x,
                 y,
                 PIECE_RADIUS - 4.0 * SCALE,
-                Color::new(base_color.r, base_color.g, base_color.b, PREVIEW_ALPHA)
+                preview_color
             );
         }
     }
