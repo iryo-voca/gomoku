@@ -2,6 +2,7 @@ use macroquad::prelude::*;
 use ::rand::Rng;
 use ::rand::thread_rng;
 
+// 概率棋子类型：表示棋子为黑棋的概率
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum ProbPiece {
     Black90,
@@ -11,6 +12,7 @@ enum ProbPiece {
     Empty,
 }
 
+// 确定棋子类型：实际落子后的明确颜色
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum DefinitePiece {
     Black,
@@ -18,55 +20,55 @@ enum DefinitePiece {
     Empty,
 }
 
+// 玩家类型
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum Player {
     Black,
     White,
 }
 
-#[derive(Default)]
+// 获胜棋子记录：存储黑白双方获胜的棋子位置
+#[derive(Clone, Debug, PartialEq, Eq, Default)]
 struct WinningPieces {
     black: Vec<(usize, usize)>,
     white: Vec<(usize, usize)>,
 }
 
+// 游戏常量配置
 const BOARD_SIZE: usize = 15;
 const SCALE: f32 = 1.5;
 const WINDOW_WIDTH: f32 = 1200.0;
 const WINDOW_HEIGHT: f32 = 1200.0;
-
 const BASE_CELL_SIZE: f32 = 30.0;
 const CELL_SIZE: f32 = BASE_CELL_SIZE * SCALE;
 const PIECE_RADIUS: f32 = CELL_SIZE / 2.0;
-
 const BOARD_ACTUAL_WIDTH: f32 = CELL_SIZE * (BOARD_SIZE - 1) as f32;
 const BOARD_ACTUAL_HEIGHT: f32 = CELL_SIZE * (BOARD_SIZE - 1) as f32;
-
 const BOARD_OFFSET_X: f32 = (WINDOW_WIDTH - BOARD_ACTUAL_WIDTH) / 2.0;
 const BOARD_OFFSET_Y: f32 = (WINDOW_HEIGHT - BOARD_ACTUAL_HEIGHT) / 2.0 + 100.0;
-
 const END_TURN_BUTTON_WIDTH: f32 = 160.0;
 const END_TURN_BUTTON_HEIGHT: f32 = 50.0;
-
 const GAME_OVER_BUTTON_SCALE: f32 = 1.5;
 const HOVER_SCALE: f32 = 1.05;
 const PREVIEW_ALPHA: f32 = 0.4;
 
+// 游戏状态结构体：存储游戏所有核心数据
 struct GameState {
-    board: Vec<Vec<ProbPiece>>,
-    show_observation: bool,
-    observation_board: Vec<Vec<DefinitePiece>>,
-    observation_winner: Option<&'static str>,
-    observe_remaining: u8,
-    current_player: Player,
-    black_prob_index: usize,
-    white_prob_index: usize,
-    winning_pieces: WinningPieces,
-    game_over: bool,
-    current_turn_move_count: u8,
-    show_prob_hint: bool,
+    board: Vec<Vec<ProbPiece>>,               // 游戏棋盘（概率棋子）
+    show_observation: bool,                   // 是否显示预览棋盘
+    observation_board: Vec<Vec<DefinitePiece>>,// 预览棋盘（确定棋子）
+    observation_winner: Option<&'static str>, // 预览结果的获胜者
+    observe_remaining: u8,                    // 剩余预览次数
+    current_player: Player,                   // 当前回合玩家
+    black_prob_index: usize,                  // 黑方概率棋子切换索引
+    white_prob_index: usize,                  // 白方概率棋子切换索引
+    winning_pieces: WinningPieces,            // 获胜棋子记录
+    game_over: bool,                          // 游戏是否结束
+    current_turn_move_count: u8,              // 本回合落子数
+    show_prob_hint: bool,                     // 是否显示概率提示文本
 }
 
+// GameState默认实现：初始化游戏状态
 impl Default for GameState {
     fn default() -> Self {
         let board = vec![vec![ProbPiece::Empty; BOARD_SIZE]; BOARD_SIZE];
@@ -87,6 +89,7 @@ impl Default for GameState {
     }
 }
 
+// 鼠标坐标转换为棋盘格子坐标
 fn mouse_to_grid(x: f32, y: f32) -> Option<(usize, usize)> {
     let grid_x = x - BOARD_OFFSET_X;
     let grid_y = y - BOARD_OFFSET_Y;
@@ -108,6 +111,7 @@ fn mouse_to_grid(x: f32, y: f32) -> Option<(usize, usize)> {
     }
 }
 
+// 概率棋子转换为确定棋子（根据概率随机生成）
 fn prob_to_definite(piece: ProbPiece) -> DefinitePiece {
     let mut rng = thread_rng();
     match piece {
@@ -119,6 +123,7 @@ fn prob_to_definite(piece: ProbPiece) -> DefinitePiece {
     }
 }
 
+// 获取当前玩家要落的概率棋子
 fn get_current_prob_piece(state: &GameState) -> ProbPiece {
     match state.current_player {
         Player::Black => match state.black_prob_index {
@@ -134,6 +139,7 @@ fn get_current_prob_piece(state: &GameState) -> ProbPiece {
     }
 }
 
+// 切换当前玩家的概率棋子类型
 fn switch_player_prob(state: &mut GameState) {
     match state.current_player {
         Player::Black => state.black_prob_index = (state.black_prob_index + 1) % 2,
@@ -141,6 +147,7 @@ fn switch_player_prob(state: &mut GameState) {
     }
 }
 
+// 检查棋盘获胜者：返回获胜者和获胜棋子位置
 fn check_winner(board: &[Vec<DefinitePiece>]) -> (Option<&'static str>, WinningPieces) {
     let directions = [(0, 1), (1, 0), (1, 1), (1, -1)];
     let mut black_has_win = false;
@@ -206,6 +213,7 @@ fn check_winner(board: &[Vec<DefinitePiece>]) -> (Option<&'static str>, WinningP
     (result, winning_pieces)
 }
 
+// 绘制棋盘：包括网格线和星位点
 fn draw_board() {
     for col in 0..BOARD_SIZE {
         let x = BOARD_OFFSET_X + col as f32 * CELL_SIZE;
@@ -244,6 +252,7 @@ fn draw_board() {
     }
 }
 
+// 绘制概率棋子：根据概率显示不同颜色和百分比文本
 fn draw_prob_pieces(board: &[Vec<ProbPiece>]) {
     for row in 0..BOARD_SIZE {
         for col in 0..BOARD_SIZE {
@@ -290,7 +299,7 @@ fn draw_prob_pieces(board: &[Vec<ProbPiece>]) {
     }
 }
 
-// 重点修改：落子预判改为统一颜色（深灰色）
+// 绘制落子预览：鼠标悬浮时显示即将落子的位置（深灰色半透明）
 fn draw_piece_preview(state: &GameState) {
     if state.game_over || state.show_observation || state.current_turn_move_count > 0 {
         return;
@@ -301,8 +310,6 @@ fn draw_piece_preview(state: &GameState) {
         if state.board[row][col] == ProbPiece::Empty {
             let x = BOARD_OFFSET_X + col as f32 * CELL_SIZE;
             let y = BOARD_OFFSET_Y + row as f32 * CELL_SIZE;
-            
-            // 统一使用深灰色（可根据喜好修改 r/g/b 值），保留原有的透明度
             let preview_color = Color::new(0.2, 0.2, 0.2, PREVIEW_ALPHA);
             
             draw_circle(
@@ -315,6 +322,7 @@ fn draw_piece_preview(state: &GameState) {
     }
 }
 
+// 绘制预览棋盘：显示确定棋子、获胜者和获胜棋子边框
 fn draw_observation_board(
     board: &[Vec<DefinitePiece>],
     winner: Option<&str>,
@@ -358,7 +366,7 @@ fn draw_observation_board(
         draw_circle_lines(
             x,
             y,
-            observe_piece_radius + win_border_width / 2.0,
+            observe_piece_radius - win_border_width / 2.0,
             win_border_width,
             win_border_color,
         );
@@ -369,7 +377,7 @@ fn draw_observation_board(
         draw_circle_lines(
             x,
             y,
-            observe_piece_radius + win_border_width / 2.0,
+            observe_piece_radius - win_border_width / 2.0,
             win_border_width,
             win_border_color,
         );
@@ -410,6 +418,7 @@ fn draw_observation_board(
     }
 }
 
+// 绘制UI界面：包括当前玩家、棋子概率提示、预览按钮、结束回合按钮
 fn draw_ui(
     show_observation: bool,
     observe_remaining: u8,
@@ -575,7 +584,6 @@ fn draw_ui(
         end_turn_button_height * end_turn_scale,
         end_turn_button_color,
     );
-    // 已删除结束回合按钮的边框绘制代码
     let end_turn_text_width = measure_text(end_turn_text, None, end_turn_text_size as u16, 1.0).width;
     draw_text(
         end_turn_text,
@@ -586,6 +594,7 @@ fn draw_ui(
     );
 }
 
+// 绘制游戏规则说明
 fn draw_game_rules() {
     let base_y = BOARD_OFFSET_Y + CELL_SIZE * (BOARD_SIZE - 1) as f32 + 20.0 * SCALE;
     let window_center_x = WINDOW_WIDTH / 2.0;
@@ -655,12 +664,14 @@ fn draw_game_rules() {
     }
 }
 
+// 游戏主函数：初始化窗口、处理输入、更新状态、渲染画面
 #[macroquad::main("Probability Gomoku")]
 async fn main() {
     miniquad::window::set_window_size(1200, 1300);
     let mut game_state = GameState::default();
 
     loop {
+        // 处理鼠标左键点击输入（游戏未结束时）
         if !game_state.game_over && is_mouse_button_pressed(MouseButton::Left) {
             let (mouse_x, mouse_y) = mouse_position();
 
@@ -670,6 +681,7 @@ async fn main() {
             let observe_x = BOARD_OFFSET_X + (BOARD_ACTUAL_WIDTH - button_width - END_TURN_BUTTON_WIDTH * SCALE - 40.0 * SCALE) / 2.0;
             let end_turn_button_x = observe_x + button_width + 40.0 * SCALE;
 
+            // 点击预览棋盘按钮
             if mouse_x >= observe_x && mouse_x <= observe_x + button_width &&
                mouse_y >= button_y && mouse_y <= button_y + button_height {
                 if game_state.show_observation {
@@ -694,6 +706,7 @@ async fn main() {
                 }
             }
 
+            // 点击结束回合按钮
             if game_state.current_turn_move_count > 0 &&
                mouse_x >= end_turn_button_x && mouse_x <= end_turn_button_x + END_TURN_BUTTON_WIDTH * SCALE &&
                mouse_y >= button_y && mouse_y <= button_y + END_TURN_BUTTON_HEIGHT * SCALE {
@@ -710,6 +723,7 @@ async fn main() {
                 game_state.show_prob_hint = true;
             }
 
+            // 落子操作
             if !game_state.show_observation && game_state.current_turn_move_count == 0 {
                 if let Some((row, col)) = mouse_to_grid(mouse_x, mouse_y) {
                     if game_state.board[row][col] == ProbPiece::Empty {
@@ -723,6 +737,7 @@ async fn main() {
             }
         }
 
+        // 处理游戏结束后的按钮点击（重启/退出）
         if game_state.game_over && is_mouse_button_pressed(MouseButton::Left) {
             let (mouse_x, mouse_y) = mouse_position();
 
@@ -732,17 +747,20 @@ async fn main() {
             let restart_x = BOARD_OFFSET_X + (BOARD_ACTUAL_WIDTH - button_width * 2.0 - 60.0 * SCALE) / 2.0;
             let exit_x = restart_x + button_width + 60.0 * SCALE;
 
+            // 点击重启游戏
             if mouse_x >= restart_x && mouse_x <= restart_x + button_width &&
                mouse_y >= button_y && mouse_y <= button_y + button_height {
                 game_state = GameState::default();
             }
 
+            // 点击退出游戏
             if mouse_x >= exit_x && mouse_x <= exit_x + button_width &&
                mouse_y >= button_y && mouse_y <= button_y + button_height {
                 std::process::exit(0);
             }
         }
 
+        // 渲染画面
         clear_background(WHITE);
         draw_board();
         draw_prob_pieces(&game_state.board);
@@ -771,6 +789,7 @@ async fn main() {
             draw_game_rules();
         }
 
+        // 绘制游戏结束后的重启/退出按钮
         if game_state.game_over {
             let (mouse_x, mouse_y) = mouse_position();
             let button_y = BOARD_OFFSET_Y + CELL_SIZE * BOARD_SIZE as f32 + 40.0 * SCALE;
